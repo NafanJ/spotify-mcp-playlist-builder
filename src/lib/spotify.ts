@@ -130,6 +130,19 @@ export async function addTrackToPlaylist(
   }
 }
 
+// Fetch playlist cover images using client credentials (no user token needed)
+export async function getPlaylistImages(
+  playlistId: string
+): Promise<{ url: string }[]> {
+  const token = await getClientToken();
+  const res = await fetch(
+    `${SPOTIFY_API_BASE}/playlists/${playlistId}/images`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
 // Generate the Spotify OAuth URL for admin login
 export function getSpotifyAuthUrl(state: string): string {
   const params = new URLSearchParams({
