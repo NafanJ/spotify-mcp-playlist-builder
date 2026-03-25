@@ -21,7 +21,7 @@ function VibeContent() {
   const [vibePrompt, setVibePrompt] = useState("");
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
   const [eventId, setEventId] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedTrack, setSubmittedTrack] = useState<SpotifyTrack | null>(null);
 
   async function handleVibe(prompt: string) {
     setVibePrompt(prompt);
@@ -50,22 +50,31 @@ function VibeContent() {
     }
   }
 
-  if (submitted) {
+  if (submittedTrack) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
-        <div className="text-5xl mb-4">✨</div>
-        <h1 className="text-2xl font-bold text-white mb-2">
-          Perfect pick! It&apos;s in the queue.
-        </h1>
-        <p className="text-zinc-400 mb-8">
-          It&apos;ll show up once it&apos;s approved.
-        </p>
-        <Link
-          href={`/event/${eventSlug}`}
-          className="text-[#1DB954] font-semibold hover:underline"
-        >
-          Back to the playlist
-        </Link>
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 rounded-full bg-[#1DB954]/20 flex items-center justify-center mx-auto mb-4">
+            <svg width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="#1DB954" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-1">
+            Perfect pick!
+          </h1>
+          <p className="text-zinc-400 text-sm mb-6">
+            Your song will appear once it&apos;s approved.
+          </p>
+          <div className="mb-8">
+            <TrackCard track={submittedTrack} compact />
+          </div>
+          <Link
+            href={`/event/${eventSlug}`}
+            className="inline-block w-full rounded-xl bg-zinc-800 py-3 text-sm font-semibold text-white hover:bg-zinc-700 transition-colors"
+          >
+            Back to the playlist
+          </Link>
+        </div>
       </div>
     );
   }
@@ -116,7 +125,7 @@ function VibeContent() {
           eventId={eventId}
           source="vibe"
           vibePrompt={vibePrompt}
-          onSuccess={() => setSubmitted(true)}
+          onSuccess={(t) => { setSubmittedTrack(t); setSelectedTrack(null); }}
           onCancel={() => setSelectedTrack(null)}
         />
       )}

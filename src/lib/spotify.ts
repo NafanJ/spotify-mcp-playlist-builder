@@ -1,6 +1,10 @@
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 
+const CLIENT_ID = (process.env.SPOTIFY_CLIENT_ID ?? "").trim();
+const CLIENT_SECRET = (process.env.SPOTIFY_CLIENT_SECRET ?? "").trim();
+const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? "";
+
 // Client credentials flow for public search (no user auth needed)
 let clientToken: { access_token: string; expires_at: number } | null = null;
 
@@ -14,7 +18,7 @@ async function getClientToken(): Promise<string> {
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Authorization: `Basic ${Buffer.from(
-        `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+        `${CLIENT_ID}:${CLIENT_SECRET}`
       ).toString("base64")}`,
     },
     body: "grant_type=client_credentials",
@@ -86,7 +90,7 @@ export async function refreshAdminToken(refreshToken: string): Promise<{
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Authorization: `Basic ${Buffer.from(
-        `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+        `${CLIENT_ID}:${CLIENT_SECRET}`
       ).toString("base64")}`,
     },
     body: new URLSearchParams({
@@ -109,7 +113,7 @@ export async function addTrackToPlaylist(
   spotifyUri: string
 ): Promise<void> {
   const res = await fetch(
-    `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+    `${SPOTIFY_API_BASE}/playlists/${playlistId}/items`,
     {
       method: "POST",
       headers: {
@@ -130,10 +134,12 @@ export async function addTrackToPlaylist(
 export function getSpotifyAuthUrl(state: string): string {
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: process.env.SPOTIFY_CLIENT_ID!,
-    scope: "playlist-modify-public playlist-modify-private playlist-read-private",
-    redirect_uri: process.env.SPOTIFY_REDIRECT_URI!,
+    client_id: CLIENT_ID!,
+    scope:
+      "playlist-modify-public playlist-modify-private playlist-read-private user-read-private user-read-email",
+    redirect_uri: REDIRECT_URI,
     state,
+    show_dialog: "true",
   });
 
   return `https://accounts.spotify.com/authorize?${params}`;
@@ -150,18 +156,46 @@ export async function exchangeCode(code: string): Promise<{
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Authorization: `Basic ${Buffer.from(
-        `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+        `${CLIENT_ID}:${CLIENT_SECRET}`
       ).toString("base64")}`,
     },
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: process.env.SPOTIFY_REDIRECT_URI!,
+      redirect_uri: REDIRECT_URI,
     }),
   });
 
   if (!res.ok) {
     throw new Error(`Spotify code exchange failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// Create a new Spotify playlist
+export async function createSpotifyPlaylist(
+  accessToken: string,
+  userId: string,
+  name: string,
+  description?: string
+): Promise<{ id: string; external_urls: { spotify: string } }> {
+  const res = await fetch(`${SPOTIFY_API_BASE}/me/playlists`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name,
+      description: description || "",
+      public: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Failed to create playlist: ${res.status} ${error}`);
   }
 
   return res.json();

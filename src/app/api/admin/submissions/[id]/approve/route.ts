@@ -58,55 +58,59 @@ export async function POST(
       );
     }
 
-    if (!event.spotify_playlist_id) {
-      return NextResponse.json(
-        { error: "No Spotify playlist linked to this event" },
-        { status: 400 }
-      );
-    }
-
-    // Fetch admin's Spotify connection
-    const { data: connection, error: connError } = await supabase
-      .from("admin_spotify_connections")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (connError || !connection) {
-      return NextResponse.json(
-        { error: "No Spotify connection found. Please connect your Spotify account." },
-        { status: 400 }
-      );
-    }
-
-    // Refresh the Spotify token if expired
-    let accessToken = connection.access_token;
-    const expiresAt = new Date(connection.expires_at).getTime();
-
-    if (Date.now() >= expiresAt) {
-      const refreshed = await refreshAdminToken(connection.refresh_token);
-      accessToken = refreshed.access_token;
-
-      // Update the refreshed token back in the database
-      await supabase
+    // Add to Spotify playlist if linked
+    if (event.spotify_playlist_id) {
+      const { data: connection, error: connError } = await supabase
         .from("admin_spotify_connections")
-        .update({
-          access_token: refreshed.access_token,
-          refresh_token: refreshed.refresh_token || connection.refresh_token,
-          expires_at: new Date(
-            Date.now() + refreshed.expires_in * 1000
-          ).toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user.id);
-    }
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-    // Add the track to the Spotify playlist
-    await addTrackToPlaylist(
-      accessToken,
-      event.spotify_playlist_id,
-      submission.spotify_uri
-    );
+      if (connError || !connection) {
+        return NextResponse.json(
+          { error: "No Spotify connection found. Please connect your Spotify account." },
+          { status: 400 }
+        );
+      }
+
+      let accessToken = connection.access_token;
+      const expiresAt = new Date(connection.expires_at).getTime();
+
+      if (Date.now() >= expiresAt) {
+        const refreshed = await refreshAdminToken(connection.refresh_token);
+        accessToken = refreshed.access_token;
+
+        await supabase
+          .from("admin_spotify_connections")
+          .update({
+            access_token: refreshed.access_token,
+            refresh_token: refreshed.refresh_token || connection.refresh_token,
+            expires_at: new Date(
+              Date.now() + refreshed.expires_in * 1000
+            ).toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user.id);
+      }
+
+      console.log("[approve] Adding track to playlist:", {
+        playlistId: event.spotify_playlist_id,
+        uri: submission.spotify_uri,
+      });
+      try {
+        await addTrackToPlaylist(
+          accessToken,
+          event.spotify_playlist_id,
+          submission.spotify_uri
+        );
+        console.log("[approve] Track added to Spotify");
+      } catch (spotifyErr) {
+        console.error("[approve] Spotify add failed (approving in DB anyway):", spotifyErr);
+        // Don't block approval — track is approved in DB even if Spotify fails
+      }
+    } else {
+      console.log("[approve] No Spotify playlist linked, approving in DB only");
+    }
 
     // Update submission status to approved
     const { data: updated, error: updateError } = await supabase

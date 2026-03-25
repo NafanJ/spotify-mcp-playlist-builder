@@ -9,7 +9,7 @@ interface SubmissionFormProps {
   eventId: string;
   source: "search" | "vibe";
   vibePrompt?: string;
-  onSuccess: () => void;
+  onSuccess: (track: SpotifyTrack) => void;
   onCancel: () => void;
 }
 
@@ -21,6 +21,28 @@ function getFingerprint(): string {
     localStorage.setItem(key, fp);
   }
   return fp;
+}
+
+const FRIENDLY_ERRORS: Record<string, { title: string; message: string }> = {
+  duplicate: {
+    title: "Already submitted",
+    message: "This track has already been suggested for this playlist. Try a different song!",
+  },
+  "already-submitted": {
+    title: "One song per person",
+    message: "You've already submitted a song for this event. Your pick is in the queue!",
+  },
+  closed: {
+    title: "Submissions closed",
+    message: "This playlist is no longer accepting suggestions.",
+  },
+};
+
+function classifyError(status: number, message: string): { title: string; message: string } | null {
+  if (status === 409 && message.includes("track")) return FRIENDLY_ERRORS.duplicate;
+  if (status === 409 && message.includes("already submitted")) return FRIENDLY_ERRORS["already-submitted"];
+  if (status === 403) return FRIENDLY_ERRORS.closed;
+  return null;
 }
 
 export default function SubmissionForm({
@@ -35,6 +57,8 @@ export default function SubmissionForm({
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [friendlyError, setFriendlyError] = useState<{ title: string; message: string } | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +66,7 @@ export default function SubmissionForm({
 
     setSubmitting(true);
     setError(null);
+    setFriendlyError(null);
 
     try {
       const fingerprint = getFingerprint();
@@ -70,15 +95,94 @@ export default function SubmissionForm({
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? "Failed to submit song");
+        const msg = body?.error ?? "Failed to submit song";
+        const friendly = classifyError(res.status, msg);
+        if (friendly) {
+          setFriendlyError(friendly);
+        } else {
+          setError(msg);
+        }
+        return;
       }
 
-      onSuccess();
+      setConfirmed(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Confirmation state
+  if (confirmed) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
+        <div className="w-full max-w-md animate-slide-up rounded-t-3xl bg-zinc-950 p-6 sm:rounded-3xl">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-[#1DB954]/20 flex items-center justify-center mb-4">
+              <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#1DB954" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-1">
+              Your song is in the queue!
+            </h2>
+            <p className="text-zinc-400 text-sm">
+              It&apos;ll show up once it&apos;s approved.
+            </p>
+          </div>
+
+          <TrackCard track={track} compact />
+
+          {note.trim() && (
+            <p className="text-zinc-500 text-xs mt-2 ml-16 italic">
+              &ldquo;{note.trim()}&rdquo;
+            </p>
+          )}
+
+          <button
+            onClick={() => onSuccess(track)}
+            className="mt-6 w-full rounded-xl bg-zinc-800 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Friendly error state (duplicate / already submitted / closed)
+  if (friendlyError) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
+        <div className="w-full max-w-md animate-slide-up rounded-t-3xl bg-zinc-950 p-6 sm:rounded-3xl">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
+              <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-1">
+              {friendlyError.title}
+            </h2>
+            <p className="text-zinc-400 text-sm">
+              {friendlyError.message}
+            </p>
+          </div>
+
+          <TrackCard track={track} compact />
+
+          <button
+            onClick={onCancel}
+            className="mt-6 w-full rounded-xl bg-zinc-800 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700"
+          >
+            Pick a different song
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -67,24 +67,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check for existing submission by same fingerprint
-    if (fingerprint) {
-      const { data: existingFingerprint } = await supabase
-        .from("submissions")
-        .select("id")
-        .eq("playlist_event_id", playlist_event_id)
-        .eq("submitted_by_fingerprint", fingerprint)
-        .limit(1)
-        .single();
-
-      if (existingFingerprint) {
-        return NextResponse.json(
-          { error: "You have already submitted a track for this event" },
-          { status: 409 }
-        );
-      }
-    }
-
     // Insert the submission
     const { data: submission, error: insertError } = await supabase
       .from("submissions")
