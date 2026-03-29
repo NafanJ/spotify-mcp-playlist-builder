@@ -10,9 +10,6 @@ export default function AdminDashboardPage() {
   const [events, setEvents] = useState<PlaylistEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [filter, setFilter] = useState<"pending" | "approved" | "rejected">(
-    "pending"
-  );
   const [loading, setLoading] = useState(true);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const router = useRouter();
@@ -74,7 +71,7 @@ export default function AdminDashboardPage() {
     }
   }, [supabase, router]);
 
-  // Load submissions when selected event or filter changes
+  // Load submissions when selected event changes
   useEffect(() => {
     if (!selectedEventId) {
       setSubmissions([]);
@@ -85,36 +82,16 @@ export default function AdminDashboardPage() {
         .from("submissions")
         .select("*")
         .eq("playlist_event_id", selectedEventId)
-        .eq("status", filter)
+        .eq("status", "approved")
         .order("created_at", { ascending: false });
       setSubmissions((subs as Submission[]) || []);
     }
     loadSubmissions();
-  }, [selectedEventId, filter, supabase]);
+  }, [selectedEventId, supabase]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  async function handleApprove(submissionId: string) {
-    const res = await fetch(`/api/admin/submissions/${submissionId}/approve`, {
-      method: "POST",
-    });
-    if (res.ok) {
-      setSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
-    }
-  }
-
-  async function handleReject(submissionId: string) {
-    const res = await fetch(`/api/admin/submissions/${submissionId}/reject`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: "Not a good fit" }),
-    });
-    if (res.ok) {
-      setSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
-    }
-  }
 
   async function handleToggleEvent() {
     if (!selectedEvent) return;
@@ -414,37 +391,35 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      {/* Submissions for selected event */}
+      {/* Playlist for selected event */}
       {selectedEvent && (
         <div className="px-4 py-4">
-          <h3 className="text-sm font-semibold text-zinc-400 mb-3">
-            Submissions — {selectedEvent.title}
-          </h3>
-          <div className="flex gap-2 mb-4">
-            {(["pending", "approved", "rejected"] as const).map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition-colors ${
-                  filter === status
-                    ? "bg-zinc-700 text-white"
-                    : "bg-zinc-800/50 text-zinc-400 hover:text-zinc-300"
-                }`}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-zinc-400">
+              Playlist — {selectedEvent.title}
+            </h3>
+            {selectedEvent.spotify_playlist_id && (
+              <a
+                href={`https://open.spotify.com/playlist/${selectedEvent.spotify_playlist_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1DB954]/10 text-[#1DB954] text-xs font-semibold hover:bg-[#1DB954]/20 transition-colors"
               >
-                {status}
-              </button>
-            ))}
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                </svg>
+                Open in Spotify
+              </a>
+            )}
           </div>
 
           <div className="space-y-2">
             {submissions.length === 0 ? (
-              <p className="text-zinc-500 text-center py-8">
-                No {filter} submissions
-              </p>
+              <p className="text-zinc-500 text-center py-8">No songs yet</p>
             ) : (
               submissions.map((sub) => (
                 <div key={sub.id} className="bg-zinc-900 rounded-xl p-3">
-                  <TrackCard track={sub} showStatus />
+                  <TrackCard track={sub} compact />
                   {sub.submitted_by_name && (
                     <p className="text-zinc-500 text-xs mt-1 ml-16">
                       from {sub.submitted_by_name}
@@ -454,22 +429,6 @@ export default function AdminDashboardPage() {
                     <p className="text-zinc-400 text-xs mt-1 ml-16 italic">
                       &ldquo;{sub.note}&rdquo;
                     </p>
-                  )}
-                  {filter === "pending" && (
-                    <div className="flex gap-2 mt-3 ml-16">
-                      <button
-                        onClick={() => handleApprove(sub.id)}
-                        className="flex-1 py-2 rounded-lg bg-[#1DB954]/20 text-[#1DB954] font-semibold text-sm hover:bg-[#1DB954]/30 transition-colors"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(sub.id)}
-                        className="flex-1 py-2 rounded-lg bg-red-500/20 text-red-400 font-semibold text-sm hover:bg-red-500/30 transition-colors"
-                      >
-                        Reject
-                      </button>
-                    </div>
                   )}
                 </div>
               ))

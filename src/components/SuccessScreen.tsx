@@ -14,7 +14,7 @@ interface SuccessScreenProps {
 export default function SuccessScreen({
   eventSlug,
   submittedTrack,
-  heading = "You're in the queue!",
+  heading = "Added to the playlist!",
 }: SuccessScreenProps) {
   const [event, setEvent] = useState<PlaylistEvent | null>(null);
   const [tracks, setTracks] = useState<Submission[]>([]);
@@ -53,7 +53,7 @@ export default function SuccessScreen({
         </div>
         <h1 className="text-2xl font-bold text-white mb-1">{heading}</h1>
         <p className="text-zinc-400 text-sm">
-          Your song will appear once it&apos;s approved.
+          Your song is now part of the playlist.
         </p>
       </div>
 

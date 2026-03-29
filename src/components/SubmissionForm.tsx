@@ -125,10 +125,10 @@ export default function SubmissionForm({
               </svg>
             </div>
             <h2 className="text-xl font-bold text-white mb-1">
-              Your song is in the queue!
+              Added to the playlist!
             </h2>
             <p className="text-zinc-400 text-sm">
-              It&apos;ll show up once it&apos;s approved.
+              Your song is in.
             </p>
           </div>
 

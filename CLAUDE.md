@@ -2,7 +2,7 @@
 
 # Project: Spotify Playlist Builder
 
-A collaborative playlist-building app where users submit songs to events, admins moderate, and AI helps discover tracks by vibe.
+A collaborative playlist-building app where users submit songs to events and AI helps discover tracks by vibe. No approval step — submissions go live immediately.
 
 ## Stack
 
@@ -21,9 +21,10 @@ A collaborative playlist-building app where users submit songs to events, admins
 | `src/app/event/[slug]/page.tsx` | Public event page + submission UI |
 | `src/app/search/page.tsx` | Track search interface |
 | `src/app/vibe/page.tsx` | AI vibe-based discovery |
-| `src/app/admin/dashboard/page.tsx` | Admin dashboard |
+| `src/app/admin/dashboard/page.tsx` | Admin dashboard — event management + playlist view |
 | `src/app/api/` | All API routes |
 | `src/components/` | Shared React components |
+| `src/components/SuccessScreen.tsx` | Post-submission screen: playlist + Spotify follow link |
 | `src/lib/types.ts` | TypeScript interfaces |
 | `src/lib/spotify.ts` | Spotify API wrapper |
 | `src/lib/supabase/client.ts` | Browser Supabase client |
@@ -47,8 +48,9 @@ ANTHROPIC_API_KEY
 - **Auth**: Admins authenticate via Supabase. Public users identified by localStorage UUID fingerprint.
 - **Spotify OAuth**: Admins connect their Spotify account to manage playlists (authorization code flow). Public search uses client credentials.
 - **AI vibe flow**: User prompt → Claude generates 3-5 search queries → parallel Spotify searches → deduplicated results.
-- **Submission states**: `pending` → `approved` | `rejected`. Approved tracks are added to the Spotify playlist.
-- **Duplicate detection**: 409 response; one submission per fingerprint per event enforced.
+- **Submission flow**: Submissions insert directly as `approved` and are added to the Spotify playlist immediately. No moderation step.
+- **Spotify add on submit**: Uses `get_event_spotify_connection` and `update_event_spotify_token` SECURITY DEFINER RPCs to read/refresh the admin's token from `admin_spotify_connections` without needing service role.
+- **Duplicate detection**: 409 response if the same track is submitted twice to the same event.
 
 ## Database Tables (Supabase)
 
