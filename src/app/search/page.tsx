@@ -44,7 +44,13 @@ function SearchContent() {
   }
 
   if (submittedTrack) {
-    return <SuccessScreen eventSlug={eventSlug} submittedTrack={submittedTrack} />;
+    return (
+      <SuccessScreen
+        eventSlug={eventSlug}
+        submittedTrack={submittedTrack}
+        onAddAnother={() => setSubmittedTrack(null)}
+      />
+    );
   }
 
   return (

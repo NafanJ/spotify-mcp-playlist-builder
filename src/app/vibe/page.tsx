@@ -57,6 +57,7 @@ function VibeContent() {
         eventSlug={eventSlug}
         submittedTrack={submittedTrack}
         heading="Perfect pick!"
+        onAddAnother={() => setSubmittedTrack(null)}
       />
     );
   }

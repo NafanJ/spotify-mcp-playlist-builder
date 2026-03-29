@@ -30,7 +30,7 @@ const FRIENDLY_ERRORS: Record<string, { title: string; message: string }> = {
   },
   "already-submitted": {
     title: "One song per person",
-    message: "You've already submitted a song for this event. Your pick is in the queue!",
+    message: "You've already submitted a song for this event.",
   },
   closed: {
     title: "Submissions closed",
